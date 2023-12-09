@@ -1,0 +1,20 @@
+---
+title: "NY Car Crashes analysis"
+author: "Matthew Bonfield"
+date: "2023-12-09"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(readr)
+library(lubridate)
+library(gridExtra)
+library(gganimate)
+library(magick) # for rendering the animation from gganimate
+crashes <- read_csv("https://data.cityofnewyork.us/api/views/h9gi-nx95/rows.csv?accessType=DOWNLOAD")
+```
+
+## R Markdown
+
