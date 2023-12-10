@@ -1,5 +1,5 @@
 ---
-title: "NY Car Crashes analysis"
+title: "New York Motor Vehicle Collisions analysis"
 author: "Matthew Bonfield"
 date: "2023-12-09"
 output: html_document
@@ -9,12 +9,204 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(readr)
+library(viridis)
 library(lubridate)
 library(gridExtra)
 library(gganimate)
 library(magick) # for rendering the animation from gganimate
-crashes <- read_csv("https://data.cityofnewyork.us/api/views/h9gi-nx95/rows.csv?accessType=DOWNLOAD")
 ```
 
-## R Markdown
+The following work describes an analysis of the data found at [data.gov](https://catalog.data.gov/dataset/motor-vehicle-collisions-crashes) 
 
+### Summary of the data set
+This data set contains motor vehicle collision reports from accidents that involved either an injury/death or were estimated to cost at least $1000 in damages from 2012 through 2023. Since 1998, police officers have been required to fill out form MV-104AN, which collects very basic information about the accident, including vehicle type(s), number of injuries/deaths, location, assumed reason for the accident, etc.
+
+This report includes a simple exploratory data analysis by modeling the distributions of different variables, locations of missing data, and trends of accidents in each of the five boroughs:
+
+* Brooklyn
+
+* Staten Island
+
+* Manhattan
+
+* Queens
+
+* Bronx
+
+### Reading in the data
+This is a large data set so it may take a few moments to be read in.
+```{r read data}
+crashes <- read_csv("https://data.cityofnewyork.us/api/views/h9gi-nx95/rows.csv?accessType=DOWNLOAD")
+```
+### Data structure
+Calling the ```tidyverse::glimpse``` function, we can see that the data contains 29 factors and over 2 million rows, where each row represents a data point.
+```{r structure}
+glimpse(crashes)
+```
+
+### Missing data
+The next step is to evaluate the location and counts of missing data
+```{r missing values}
+missing_vals <- as.data.frame(colSums(is.na(crashes)))
+missing_vals$factor <- rownames(missing_vals)
+names(missing_vals) <- c('n','variable')
+rownames(missing_vals) <- NULL
+
+missing_vals %>% 
+  ggplot(aes(x = n, y = reorder(variable, n)))+
+  geom_bar(stat = 'identity')+
+  ggtitle('Location and Count of Missing Data')+
+  xlab('Count')+
+  ylab('Variable')
+```
+
+The largest contributors to the missing data are the vehicle factor types and contributing factors. This is attributed to the fact that most motor vehicle accidents involve only one or two vehicles. Factors like the off-street and cross-street name are less important for the officer filling out the form since the latitude/longitude information is recorded in most of these reports. Interestingly, while the "Contributing Factor Vehicle 1" entry is made for nearly all reports, it is much less frequent for the officer to fill out the same thing for the other vehicle, assuming it is for a two-car collision. I can assume that there is usually only one driver at fault, and the contributing factor that leads to the accident is attributed to "vehicle 1." This may answer the question as to how drivers are assigned to either "vehicle 1" or "vehicle 2" after a collision. 
+
+### Most common reported reason for collision
+Not all collisions occur for the same reason, which is why the MV-104AN form includes an entry for what may have been the contributing factor. A distribution for the more common contributing factors is plotted below. Only values from "CONTRIBUTING FACTOR VEHICLE 1" are plotted.
+```{r contributing factors, fig.width=10, fig.height=10}
+as.data.frame(table(crashes$`CONTRIBUTING FACTOR VEHICLE 1`)) %>% 
+  filter(Var1 != 'Unspecified') %>%
+  ggplot(aes(Freq, reorder(Var1, Freq)))+
+  geom_bar(stat = 'identity')+
+  ggtitle('Count of Contributing Crash Factors of Vehicle 1')+
+  xlab('Count')+
+  ylab('Factors')
+```
+
+After filtering out the huge number of "Unspecified" reasons, the top 5 most reported reasons for collisions are:
+
+1. Driver Inattention/Distraction
+
+2. Failure to Yield Right-of-Way
+
+3. Following Too Closely
+
+4. Backing Unsafely
+
+5. Other vehicular (unsure about this one)
+
+What is meant by "other vehicular" is unbeknownst to me, but it is surprising how many distracted-driver accidents are recorded. The issue with reporting this variable is that most of the time, the reason for the collision is really only known to the driver since the officer may not have been at the scene when it occurred. Since there are far more civilians than police officers, the number of accidents not directly observed by officers is probably far higher than those that are. Taking the word of the driver is sometimes the best the officer can do, and pleading "distraction" likely has less legal implication than admitting to failing to yield of improper lane usage. 
+
+Looking further down the list, there is a huge variety of unique contributing factors, including some that are not trivial such as "80" or "1". These two numerical entries may either correspond to entry errors, previously used departmental codes, or another reason. 
+
+It is possible that a few of these unique reasons could be lumped into another classifier. For example, "Lost Consciousness", "Illness", "Illnes" could have been combined. Another example could be "Fatigued/Drowsy" and "Fell Asleep", since both are nearly the same factor. The variation in reports stems from the fact that there are several different officers who likely interpret each collision differently. 
+
+### Time and date of crashes
+Determining at which points during the day or month (or year) accidents are more likely to occur is useful for commuters to know how risky it may be to be out on the road at a specific time. The distribution of reported accidents is plotted based on time of day, day of the month, and month of the year.
+```{r daydate collisions}
+# Visualize crashes by time of day
+p <- crashes %>% 
+  ggplot(aes(x=as.POSIXct(`CRASH TIME`)))+
+  geom_histogram(bins = 80)+
+  xlab("Time of Day")+
+  ylab("Frequency")+
+  scale_x_datetime(date_breaks = "2 hours", date_labels = "%H:%M")
+# seems like most crashes occur around the same time people are on their way
+# home from work
+
+# Visualize crashes by day
+crashes$day <- day(as.Date(crashes$`CRASH DATE`, format = "%m/%d/%Y"))
+day_freq <- as.data.frame(table(crashes$day))
+#day_freq <- day_freq[order(day_freq, decreasing = TRUE)]
+p1 <- day_freq %>% 
+  ggplot(aes(x=Var1, y=Freq))+
+  geom_bar(stat = 'identity')+
+  xlab('Day of Month')+
+  ylab('Frequency')
+
+# Visualize crashes by month
+crashes$month <- month(as.Date(crashes$`CRASH DATE`, format = "%m/%d/%Y"))
+month_freq <- as.data.frame(table(crashes$month))
+#month_freq <- month_freq[order(month_freq, decreasing = TRUE)]
+p2 <- month_freq %>% 
+  ggplot(aes(x=Var1, y=Freq))+
+  geom_bar(stat = 'identity')+
+  xlab('Month')+
+  ylab('Frequency')
+
+# Visualize crashes by year
+crashes$year <- year(as.Date(crashes$`CRASH DATE`, format = "%m/%d/%Y"))
+year_freq <- as.data.frame(table(crashes$year))
+#year_freq <- year_freq[order(year_freq, decreasing = TRUE)]
+p3 <- year_freq %>% 
+  ggplot(aes(x=Var1, y=Freq))+
+  geom_bar(stat = 'identity')+
+  xlab('Year')+
+  ylab('Frequency')+
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+
+# Plot on frequency charts on single figure
+grid.arrange(
+  arrangeGrob(p, ncol = 1),
+  arrangeGrob(p2, p3, ncol = 2),
+  arrangeGrob(p1, ncol = 1),
+  top = "Frequency of Crashes by Time, Day, Month, and Year"
+  )
+```
+
+##### Time of Day
+The distribution of collisions throughout the day is a culmination of all seven days of the week. It should be noted that not all days may share exactly this distribution, but for the most part, this distribution is fairly representative. Most of the reported collisions occur later in the day, after lunchtime, and when people begin to end their work day and commute back to their homes. Considering the average person's work day ends at 5:00 pm, a collision may occur shortly after, and a report would be drafted after police show up, possibly closer to 6:00 pm. Since it takes some time for the officer(s) to show up to the scene, some reports may be time-stamped for the time at which they arrive, rather than the actual time of the accident. This may contribute to a modified spread of recorded collisions throughout the day since the time stamp would be a factor of police arrival time. 
+
+##### Day to Day
+There does not appear to be any obvious trend in motor vehicle accidents throughout the month. It should be noted that although the 31st day of the month shows a near 50% decrease in collisions, this is most likely since only 7 of the months have 31 days.
+
+##### Month to Month
+Looking at the monthly distribution, there are fewer collisions in the earlier part of the year compared to the middle and later parts. It may be that because the weather in New York City is typically much cooler at the beginning of the year, especially in January and February, people are less willing to leave their homes due to cold temperatures or unfavorable road conditions.
+
+##### Year to Year
+Starting in 2012, there looks to be very few reported collisions compared to the later years. This may be due to the lack of reporting in 2012 since the reporting system was very new. As more and more officers complete these collision reports, the years between 2015 and 2019 are likely more representative of the annual distribution. There is a clear sharp decline in reported collisions in 2020, which is most likely due to the sharp reduction of the population out on the road due to the spread of COVID-19 and the restrictions imposed by the city. There is a downward trend in these reports from 2020 to 2022. After the conclusion of 2023, it could be expected that the number of accidents will increase again to normal levels, assuming police reporting remains the same. 
+
+### Distribution of collision-related deaths
+The most common contributing factors to accident-related deaths is plotted below
+```{r common death factors}
+deaths <- crashes %>% 
+  filter(`NUMBER OF PERSONS KILLED` >= 1)
+death_factors <- as.data.frame(table(deaths$`CONTRIBUTING FACTOR VEHICLE 1`))
+death_factors %>% 
+  filter(Var1 != 'Unspecified' & Freq >= 50) %>% 
+  ggplot(aes(Freq, reorder(Var1, Freq)))+
+  geom_bar(stat = 'identity')+
+  ggtitle('Most Common Causes of Crash Deaths')+
+  xlab('Count')+
+  ylab('Factors')
+```
+
+Similar to the previous contributing factor distribution, these are the most common ones that result in the death of at least one person involved, including the passenger(s), cyclists, and pedestrians. 
+
+Plotted below is the distribution of accident-related deaths sorted by their corresponding borough.
+```{r deaths by borough}
+death_borough <- as.data.frame(table(deaths$BOROUGH, deaths$year))
+death_borough <- death_borough %>% 
+  arrange(desc(Freq))
+
+death_borough %>% 
+  ggplot(aes(reorder(Var1, -Freq), Freq))+
+  geom_bar(stat = 'identity', aes(fill = Var1))+
+  guides(fill = guide_legend(title="Borough"))+
+  xlab(NULL)+
+  ggtitle(label = "Accident-related Deaths by Borough")+
+  scale_fill_viridis(discrete = TRUE)
+```
+
+While there are obvious differences in the number of accident-related deaths between the boroughs, this trend follows the same order of borough population, with Brooklyn having the highest population, followed by Queens, then Manhattan, then the Bronx, then Staten Island. See https://www.citypopulation.de/en/usa/newyorkcity/ for population statistics.
+
+### Change in traffic deaths over the years 
+Using the ```gganimate``` library, the accident-related deaths between the boroughs is plotted as a time series gif, with the corresponding year displayed at the top of the figure. 
+```{r deaths animated}
+death_animated <- death_borough %>% 
+  ggplot(aes(reorder(Var1, -Freq), Freq))+
+  geom_bar(stat='identity', width = 0.5, aes(fill = Var1))+
+  transition_time(as.numeric(Var2)) +
+  ease_aes('linear')+
+  labs(title = "Deaths from Car Accidents in the Five NY Boroughs (2012-2023)",
+       subtitle = "Year: {round(frame_time+2011)}", caption = 'Source: https://catalog.data.gov/dataset/motor-vehicle-collisions-crashes')+
+  ylab('No. of Deaths')+
+  theme(axis.text = element_text(size=12),
+        axis.title = element_text(size=14))+
+  guides(fill = guide_legend(title="Borough"))+
+  scale_fill_viridis(discrete = TRUE)+
+  theme_minimal()
+
+animate(death_animated, width = 800, height = 400, nframes = 60, fps = 7)
+```

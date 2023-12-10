@@ -1,4 +1,5 @@
 library(tidyverse)
+library(viridis)
 library(readr)
 library(lubridate)
 library(gridExtra)
@@ -23,12 +24,11 @@ barplot(borough_freq, main = "Number of Crashes by Borough",
         ylab = "No. of Crashes")
 
 # Visualize crashes by time of day
-crashes %>% 
+p <- crashes %>% 
   ggplot(aes(x=as.POSIXct(`CRASH TIME`)))+
-  geom_histogram(color='black',fill='lightblue', bins = 60)+
+  geom_histogram(bins = 80)+
   xlab("Time of Day")+
   ylab("Frequency")+
-  ggtitle(label = "Frequency of Crashes by Time of Day")+
   scale_x_datetime(date_breaks = "2 hours", date_labels = "%H:%M")
 # seems like most crashes occur around the same time people are on their way
 # home from work
@@ -66,6 +66,7 @@ p3 <- year_freq %>%
 
 # Plot on frequency charts on single figure
 grid.arrange(
+  arrangeGrob(p, ncol = 1),
   arrangeGrob(p2, p3, ncol = 2),
   arrangeGrob(p1, ncol = 1),
   top = "Frequency of Crashes by Day, Month, and Year"
@@ -100,7 +101,8 @@ as.data.frame(table(crashes$`CONTRIBUTING FACTOR VEHICLE 1`)) %>%
   geom_bar(stat = 'identity')+
   ggtitle('Count of Contributing Crash Factors of Vehicle 1')+
   xlab('Count')+
-  ylab('Factors')
+  ylab('Factors')+
+  scale_y_discrete(guide=guide_axis(n.dodge=1))
 
 as.data.frame(table(crashes$`CONTRIBUTING FACTOR VEHICLE 2`)) %>%
   filter(Var1 != 'Unspecified') %>%
@@ -116,7 +118,7 @@ deaths <- crashes %>%
   filter(`NUMBER OF PERSONS KILLED` >= 1)
 death_factors <- as.data.frame(table(deaths$`CONTRIBUTING FACTOR VEHICLE 1`))
 death_factors %>% 
-  filter(Var1 != 'Unspecified') %>% 
+  filter(Var1 != 'Unspecified' & Freq >= 50) %>% 
   ggplot(aes(Freq, reorder(Var1, Freq)))+
   geom_bar(stat = 'identity')+
   ggtitle('Most Common Causes of Crash Deaths')+
@@ -130,7 +132,12 @@ death_borough <- death_borough %>%
 
 death_borough %>% 
   ggplot(aes(reorder(Var1, -Freq), Freq))+
-  geom_bar(stat = 'identity', aes(fill = Var1))
+  geom_bar(stat = 'identity', aes(fill = Var1))+
+  guides(fill = guide_legend(title="Borough"))+
+  xlab(NULL)+
+  ggtitle(label = "Accident-related Deaths by Borough")+
+  scale_fill_viridis(discrete = TRUE)
+  
 
 # gganimate plot of 'death_borough' over the years
 death_animated <- death_borough %>% 
@@ -140,10 +147,12 @@ death_animated <- death_borough %>%
   ease_aes('linear')+
   labs(title = "Deaths from Car Accidents in the Five NY Boroughs (2012-2023)",
        subtitle = "Year: {round(frame_time+2011)}", caption = 'Source: https://catalog.data.gov/dataset/motor-vehicle-collisions-crashes')+
+  xlab(NULL)+
   ylab('No. of Deaths')+
   theme(axis.text = element_text(size=12),
         axis.title = element_text(size=14))+
   guides(fill = guide_legend(title="Borough"))+
+  scale_fill_viridis(discrete = TRUE)+
   theme_minimal()
 
 animate(death_animated, width = 800, height = 400, nframes = 60, fps = 7)
