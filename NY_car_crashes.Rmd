@@ -201,6 +201,7 @@ death_animated <- death_borough %>%
   ease_aes('linear')+
   labs(title = "Deaths from Car Accidents in the Five NY Boroughs (2012-2023)",
        subtitle = "Year: {round(frame_time+2011)}", caption = 'Source: https://catalog.data.gov/dataset/motor-vehicle-collisions-crashes')+
+  xlab(NULL)+
   ylab('No. of Deaths')+
   theme(axis.text = element_text(size=12),
         axis.title = element_text(size=14))+
