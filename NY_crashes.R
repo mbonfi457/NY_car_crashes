@@ -161,8 +161,8 @@ animate(death_animated, width = 800, height = 400, nframes = 60, fps = 7)
 #anim_save("death_animated.gif", animation = last_animation(), path = getwd())
 
 # Visualizing geospatial data
-# We use the 'sf' package to convert location data into "special feature" objects for geospatial plotting
-# Begin with plotting all vehicle accident-related deaths over the years
+# we use the 'sf' package to convert location data into "special feature" objects for geospatial plotting
+# begin with plotting all vehicle accident-related deaths over the years
 location_manhattan <- crashes %>% 
   filter(BOROUGH == "MANHATTAN" & `NUMBER OF PERSONS KILLED` >= 1 & LOCATION != "(0.0, 0.0)") # filter for only Manhattan deaths with valid location data
 
@@ -181,18 +181,20 @@ basemap %>%
     radius = 1)
   )
 
-# The same can be done for any of the other boroughs (ex. Brooklyn)
-location_brooklyn <- crashes %>% 
-  filter(BOROUGH == "BROOKLYN" & `NUMBER OF PERSONS KILLED` >= 1 & LOCATION != "(0.0, 0.0)") # filter for only Manhattan deaths with valid location data
-location_brooklyn$LATITUDE <- as.numeric(gsub("\\((.*),.*\\)", "\\1", location_brooklyn$LOCATION)) # the separate "LATITUDE" and "LONGITUDE" data wasn't precise enough so we use regex to extract info from the "LOCATION" column
-location_brooklyn$LONGITUDE <- as.numeric(gsub("\\(.*,(.*)\\)", "\\1", location_brooklyn$LOCATION))
-location_brooklyn_sf <- st_as_sf(location_brooklyn, coords = c("LONGITUDE","LATITUDE"), crs = 4326) # create new "special feature" data frame that contains only the coordinates
-basemap %>% 
-  addCircleMarkers(
-    data = location_brooklyn_sf,
-    color = "red",
-    radius = 1)
-  )
-
 # Writing a function that takes in a borough (e.g "MANHATTAN", "BROOKLYN", "STATEN ISLAND", "QUEENS", "BRONX) and generates a basemap plot
-
+plot_deaths <- function(borough, num_killed = 1, color = "blue") {
+  basemap <- leaflet() %>% addProviderTiles("CartoDB.Positron")
+  
+  location_borough <- crashes %>% 
+    filter(BOROUGH == borough & `NUMBER OF PERSONS KILLED` >= num_killed & LOCATION != "(0.0, 0.0)")
+  location_borough$LATITUDE <- as.numeric(gsub("\\((.*),.*\\)", "\\1", location_borough$LOCATION))
+  location_borough$LONGITUDE <- as.numeric(gsub("\\(.*,(.*)\\)", "\\1", location_borough$LOCATION))
+  location_borough_sf <- st_as_sf(location_borough, coords = c("LONGITUDE", "LATITUDE"), crs = 4326)
+  basemap %>% 
+    addCircleMarkers(
+      data = location_borough_sf,
+      color = color,
+      radius = 1)
+}
+# Test with "QUEENS"
+plot_deaths(borough ="QUEENS", num_killed = 1, color = "red")
