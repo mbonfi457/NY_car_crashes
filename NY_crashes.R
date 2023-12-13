@@ -1,10 +1,12 @@
-library(tidyverse)
-library(viridis)
-library(readr)
-library(lubridate)
-library(gridExtra)
-library(gganimate)
+library(tidyverse) # for all that is holy
+library(viridis) # for my favorite ggplot color scheme
+library(readr) # for reading in the csv file
+library(lubridate) # for easier time and date data manipulation
+library(gridExtra) # for generating grids for multiple plots
+library(gganimate) # for creating an animated plot in ggplot
 library(magick) # for rendering the animation from gganimate
+library(sf) # for plotting geospatial data
+library(leaflet) # for importing OpenStreetMap
 
 
 # Exploratory Data Analysis -----------------------------------------------
@@ -156,5 +158,41 @@ death_animated <- death_borough %>%
   theme_minimal()
 
 animate(death_animated, width = 800, height = 400, nframes = 60, fps = 7)
-anim_save("death_animated.gif", animation = last_animation(), path = getwd())
+#anim_save("death_animated.gif", animation = last_animation(), path = getwd())
+
+# Visualizing geospatial data
+# We use the 'sf' package to convert location data into "special feature" objects for geospatial plotting
+# Begin with plotting all vehicle accident-related deaths over the years
+location_manhattan <- crashes %>% 
+  filter(BOROUGH == "MANHATTAN" & `NUMBER OF PERSONS KILLED` >= 1 & LOCATION != "(0.0, 0.0)") # filter for only Manhattan deaths with valid location data
+
+location_manhattan$LATITUDE <- as.numeric(gsub("\\((.*),.*\\)", "\\1", location_manhattan$LOCATION)) # the separate "LATITUDE" and "LONGITUDE" data wasn't precise enough so we use regex to extract info from the "LOCATION" column
+location_manhattan$LONGITUDE <- as.numeric(gsub("\\(.*,(.*)\\)", "\\1", location_manhattan$LOCATION))
+
+# convert dataframe to sf object
+location_manhattan_sf <- st_as_sf(location_manhattan, coords = c("LONGITUDE","LATITUDE"), crs = 4326) # create new "special feature" data frame that contains only the coordinates
+
+# import an OpenStreetMap using the 'leaflet' library
+basemap <- leaflet() %>% addProviderTiles("CartoDB.Positron")
+basemap %>% 
+  addCircleMarkers(
+    data = location_manhattan_sf,
+    color = "red",
+    radius = 1)
+  )
+
+# The same can be done for any of the other boroughs (ex. Brooklyn)
+location_brooklyn <- crashes %>% 
+  filter(BOROUGH == "BROOKLYN" & `NUMBER OF PERSONS KILLED` >= 1 & LOCATION != "(0.0, 0.0)") # filter for only Manhattan deaths with valid location data
+location_brooklyn$LATITUDE <- as.numeric(gsub("\\((.*),.*\\)", "\\1", location_brooklyn$LOCATION)) # the separate "LATITUDE" and "LONGITUDE" data wasn't precise enough so we use regex to extract info from the "LOCATION" column
+location_brooklyn$LONGITUDE <- as.numeric(gsub("\\(.*,(.*)\\)", "\\1", location_brooklyn$LOCATION))
+location_brooklyn_sf <- st_as_sf(location_brooklyn, coords = c("LONGITUDE","LATITUDE"), crs = 4326) # create new "special feature" data frame that contains only the coordinates
+basemap %>% 
+  addCircleMarkers(
+    data = location_brooklyn_sf,
+    color = "red",
+    radius = 1)
+  )
+
+# Writing a function that takes in a borough (e.g "MANHATTAN", "BROOKLYN", "STATEN ISLAND", "QUEENS", "BRONX) and generates a basemap plot
 
