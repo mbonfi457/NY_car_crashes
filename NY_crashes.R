@@ -28,10 +28,11 @@ barplot(borough_freq, main = "Number of Crashes by Borough",
 # Visualize crashes by time of day
 p <- crashes %>% 
   ggplot(aes(x=as.POSIXct(`CRASH TIME`)))+
-  geom_histogram(bins = 80)+
+  geom_histogram(bins = 80, fill = "#414487FF")+
   xlab("Time of Day")+
-  ylab("Frequency")+
-  scale_x_datetime(date_breaks = "2 hours", date_labels = "%H:%M")
+  ylab(NULL)+
+  scale_x_datetime(date_breaks = "2 hours", date_labels = "%H:%M")+
+  labs(caption = "Data from https://catalog.data.gov/dataset/motor-vehicle-collisions-crashes")
 # seems like most crashes occur around the same time people are on their way
 # home from work
 
@@ -41,9 +42,9 @@ day_freq <- as.data.frame(table(crashes$day))
 #day_freq <- day_freq[order(day_freq, decreasing = TRUE)]
 p1 <- day_freq %>% 
   ggplot(aes(x=Var1, y=Freq))+
-  geom_bar(stat = 'identity')+
+  geom_bar(stat = 'identity', fill = "#2A788EFF")+
   xlab('Day of Month')+
-  ylab('Frequency')
+  ylab(NULL)
 
 # Visualize crashes by month
 crashes$month <- month(as.Date(crashes$`CRASH DATE`, format = "%m/%d/%Y"))
@@ -51,9 +52,9 @@ month_freq <- as.data.frame(table(crashes$month))
 #month_freq <- month_freq[order(month_freq, decreasing = TRUE)]
 p2 <- month_freq %>% 
   ggplot(aes(x=Var1, y=Freq))+
-  geom_bar(stat = 'identity')+
+  geom_bar(stat = 'identity', fill = "#440154FF")+
   xlab('Month')+
-  ylab('Frequency')
+  ylab(NULL)
 
 # Visualize crashes by year
 crashes$year <- year(as.Date(crashes$`CRASH DATE`, format = "%m/%d/%Y"))
@@ -61,18 +62,21 @@ year_freq <- as.data.frame(table(crashes$year))
 #year_freq <- year_freq[order(year_freq, decreasing = TRUE)]
 p3 <- year_freq %>% 
   ggplot(aes(x=Var1, y=Freq))+
-  geom_bar(stat = 'identity')+
+  geom_bar(stat = 'identity', fill = "#35B779FF")+
   xlab('Year')+
-  ylab('Frequency')+
+  ylab(NULL)+
   theme(axis.text.x = element_text(angle=45, hjust=1))
 
 # Plot on frequency charts on single figure
+title1 = text_grob(
+  "Frequency of Reported Crashes by Time, Day, Month, and Year in NYC (2012 - 2023)",
+  size = 15, face = "bold")
 grid.arrange(
   arrangeGrob(p, ncol = 1),
-  arrangeGrob(p2, p3, ncol = 2),
   arrangeGrob(p1, ncol = 1),
-  top = "Frequency of Crashes by Day, Month, and Year"
-  )
+  arrangeGrob(p2, p3, ncol = 2),
+  top = title1
+)
 
 # Determine locations of missing values
 missing_vals <- as.data.frame(colSums(is.na(crashes)))
