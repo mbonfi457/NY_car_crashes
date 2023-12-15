@@ -8,12 +8,14 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
-library(readr)
 library(viridis)
+library(readr)
 library(lubridate)
+library(sf)
+library(ggspatial)
+library(leaflet)
 library(gridExtra)
-library(gganimate)
-library(magick) # for rendering the animation from gganimate
+library(ggpubr)
 ```
 
 The following work describes an analysis of the data found at [data.gov](https://catalog.data.gov/dataset/motor-vehicle-collisions-crashes) 
@@ -210,4 +212,46 @@ death_animated <- death_borough %>%
   theme_minimal()
 
 animate(death_animated, width = 800, height = 400, nframes = 60, fps = 7)
+```
+
+### Plot location data of deaths in each borough
+Using the ```sf``` package to convert location data to a ```sf object```, we can plot collision-related deaths on an OpenStreetMap with the ```leaflet``` packaage. Let's begin by just plotting those in Manhattan.
+```{r manhattan death locations}
+location_manhattan <- crashes %>% 
+  filter(BOROUGH == "MANHATTAN" & `NUMBER OF PERSONS KILLED` >= 1 & LOCATION != "(0.0, 0.0)") # filter for only Manhattan deaths with valid location data
+
+location_manhattan$LATITUDE <- as.numeric(gsub("\\((.*),.*\\)", "\\1", location_manhattan$LOCATION)) # the separate "LATITUDE" and "LONGITUDE" data wasn't precise enough so we use regex to extract info from the "LOCATION" column
+location_manhattan$LONGITUDE <- as.numeric(gsub("\\(.*,(.*)\\)", "\\1", location_manhattan$LOCATION))
+
+# convert dataframe to sf object
+location_manhattan_sf <- st_as_sf(location_manhattan, coords = c("LONGITUDE","LATITUDE"), crs = 4326) # create new "special feature" data frame that contains only the coordinates
+
+# import an OpenStreetMap using the 'leaflet' library
+basemap <- leaflet() %>% addProviderTiles("CartoDB.Positron")
+basemap %>% 
+  addCircleMarkers(
+    data = location_manhattan_sf,
+    color = "red",
+    radius = 1)
+  )
+```
+
+We can also write a function that takes in a ```BOROUGH``` value ("MANHATTAN", "STATEN ISLAND", "BRONX", etc.)
+```{r function to plot location}
+plot_deaths <- function(borough, num_killed = 1, color = "blue") {
+  basemap <- leaflet() %>% addProviderTiles("CartoDB.Positron")
+  
+  location_borough <- crashes %>% 
+    filter(BOROUGH == borough & `NUMBER OF PERSONS KILLED` >= num_killed & LOCATION != "(0.0, 0.0)")
+  location_borough$LATITUDE <- as.numeric(gsub("\\((.*),.*\\)", "\\1", location_borough$LOCATION))
+  location_borough$LONGITUDE <- as.numeric(gsub("\\(.*,(.*)\\)", "\\1", location_borough$LOCATION))
+  location_borough_sf <- st_as_sf(location_borough, coords = c("LONGITUDE", "LATITUDE"), crs = 4326)
+  basemap %>% 
+    addCircleMarkers(
+      data = location_borough_sf,
+      color = color,
+      radius = 1)
+}
+# Test with "QUEENS"
+plot_deaths(borough ="QUEENS", num_killed = 1, color = "red")
 ```
