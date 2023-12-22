@@ -67,6 +67,14 @@ p3 <- year_freq %>%
   ylab(NULL)+
   theme(axis.text.x = element_text(angle=45, hjust=1))
 
+# Visualize crashes by DAY-OF-WEEK
+crashes$dow <- weekdays.Date(as.Date(crashes$`CRASH DATE`))
+dow_freq <- as.data.frame(table(crashes$dow))
+p4 <- dow_freq %>% 
+  ggplot(aes(Var1, Freq))+
+  geom_bar(stat='identity', fill = '#20A486FF')+
+  scale_x_discrete(limits = c('Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'))
+
 # Plot on frequency charts on single figure
 title1 = text_grob(
   "Frequency of Reported Crashes by Time, Day, Month, and Year in NYC (2012 - 2023)",
