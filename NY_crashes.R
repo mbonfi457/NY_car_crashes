@@ -1,13 +1,22 @@
-library(tidyverse) # for all that is holy
-library(viridis) # for my favorite ggplot color scheme
-library(readr) # for reading in the csv file
-library(lubridate) # for easier time and date data manipulation
-library(gridExtra) # for generating grids for multiple plots
-library(gganimate) # for creating an animated plot in ggplot
-library(magick) # for rendering the animation from gganimate
-library(sf) # for plotting geospatial data
-library(leaflet) # for importing OpenStreetMap
+#library(tidyverse) # for all that is holy
+#library(viridis) # for my favorite ggplot color scheme
+#library(readr) # for reading in the csv file
+#library(lubridate) # for easier time and date data manipulation
+#library(gridExtra) # for generating grids for multiple plots
+#library(gganimate) # for creating an animated plot in ggplot
+#library(magick) # for rendering the animation from gganimate
+#library(sf) # for plotting geospatial data
+#library(leaflet) # for importing OpenStreetMap
+package_list = c("tidyverse", "viridis", "readr",
+                 "lubridate", "gridExtra", "gganimate",
+                 "magick", "sf", "leaflet")
 
+for (pkg in package_list) {
+  if (!require(pkg, character.only = TRUE)) {
+    install.packages(pkg)
+  }
+  library(pkg, character.only = TRUE)
+}
 
 # Exploratory Data Analysis -----------------------------------------------
 
